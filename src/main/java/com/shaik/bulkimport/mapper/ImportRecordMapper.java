@@ -1,6 +1,6 @@
 package com.shaik.bulkimport.mapper;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
 
 import com.shaik.bulkimport.dto.ImportRecordResponseDto;
 import com.shaik.bulkimport.entity.ImportJob;
@@ -34,11 +34,10 @@ public class ImportRecordMapper {
 	            .build();
 	}
 	
-	public static List<ImportRecordResponseDto> mapToResponseList(
-	        List<ImportRecord> records) {
+	public static Page<ImportRecordResponseDto> mapToResponseList(
+	        Page<ImportRecord> records) {
 
-	    return records.stream()
-	            .map(ImportRecordMapper::mapToResponse)
-	            .toList();
+	    return records
+	            .map(ImportRecordMapper::mapToResponse);
 	}
 }

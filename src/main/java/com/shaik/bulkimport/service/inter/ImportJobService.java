@@ -1,7 +1,5 @@
 package com.shaik.bulkimport.service.inter;
 
-import java.util.List;
-
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,6 +15,6 @@ public interface ImportJobService {
 	Page<ImportResponseDto> getAllJob(int page,
 										int size, String sortBy, String direction);
 	
-	List<ImportRecordResponseDto> getImportRecords(Long jobId);
+	Page<ImportRecordResponseDto> getImportRecords(Long jobId, int page, int size, String sortBy, String direction);
 
 }

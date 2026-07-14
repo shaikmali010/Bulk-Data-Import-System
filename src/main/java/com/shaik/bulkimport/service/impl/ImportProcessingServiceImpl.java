@@ -66,39 +66,7 @@ public class ImportProcessingServiceImpl implements ImportProcessingService{
 	        logger.info("Parsed {} records from file.",
 	                parsedFile.getRows().size());
 
-	        List<ImportRecord> records = processRows(job, parsedFile);
-
-	        importRecordRepository.saveAll(records);
-	        
-	        logger.info("{} records saved successfully.",
-	                records.size());
-	        
-	        int totalRecords = records.size();
-
-	        int successfulRecords = (int) records.stream()
-	                .filter(record -> record.getStatus() == ImportStatus.COMPLETED)
-	                .count();
-
-	        int failedRecords = totalRecords - successfulRecords;
-
-	        boolean hasFailedRecords = records.stream()
-	                .anyMatch(record ->
-	                        record.getStatus() == ImportStatus.FAILED);
-
-	        job.setStatus(hasFailedRecords
-	                ? ImportStatus.FAILED
-	                : ImportStatus.COMPLETED);
-
-	        importJobRepository.save(job);
-	        
-	        
-	        
-	        logger.info(
-	                "Import Job {} completed. Total: {}, Success: {}, Failed: {}",
-	                job.getId(),
-	                totalRecords,
-	                successfulRecords,
-	                failedRecords);
+	        processRows(job, parsedFile);
 
 	    } catch (Exception ex) {
 
@@ -113,50 +81,100 @@ public class ImportProcessingServiceImpl implements ImportProcessingService{
 	    }
 	}
 	
-	  private List<ImportRecord> processRows(
-	            ImportJob job,
-	            ParsedFileDto parsedFile) {
-		  
-		  logger.info("Started validating records.");
+	private void processRows(
+	        ImportJob job,
+	        ParsedFileDto parsedFile) {
 
-	        List<ImportRecord> records = new ArrayList<>();
+	    logger.info("Started validating records.");
 
-	        for (String row : parsedFile.getRows()) {
+	    List<ImportRecord> batch = new ArrayList<>();
 
-	            List<String> errors =
-	                    recordValidator.validate(
-	                            parsedFile.getHeaders(),
-	                            row);
-	            
-	            if (!errors.isEmpty()) {
+	    int totalRecords = 0;
+	    int successfulRecords = 0;
+	    int failedRecords = 0;
 
-	                logger.warn(
-	                        "Invalid record: {} | Errors: {}",
-	                        row,
-	                        errors);
-	            }
+	    final int BATCH_SIZE = 100;
 
-	            ImportStatus status =
-	                    errors.isEmpty()
-	                            ? ImportStatus.COMPLETED
-	                            : ImportStatus.FAILED;
+	    for (String row : parsedFile.getRows()) {
 
-	            String errorMessage =
-	                    errors.isEmpty()
-	                            ? null
-	                            : String.join(", ", errors);
+	        totalRecords++;
 
-	            ImportRecord record =
-	                    ImportRecordMapper.toEntity(
-	                            job,
-	                            row,
-	                            status,
-	                            errorMessage);
+	        List<String> errors =
+	                recordValidator.validate(
+	                        parsedFile.getHeaders(),
+	                        row);
 
-	            records.add(record);
+	        if (!errors.isEmpty()) {
+
+	            logger.warn(
+	                    "Invalid record: {} | Errors: {}",
+	                    row,
+	                    errors);
 	        }
 
-	        return records;
+	        ImportStatus status;
+
+	        String errorMessage;
+
+	        if (errors.isEmpty()) {
+
+	            status = ImportStatus.COMPLETED;
+	            errorMessage = null;
+	            successfulRecords++;
+
+	        } else {
+
+	            status = ImportStatus.FAILED;
+	            errorMessage = String.join(", ", errors);
+	            failedRecords++;
+
+	        }
+
+	        ImportRecord record =
+	                ImportRecordMapper.toEntity(
+	                        job,
+	                        row,
+	                        status,
+	                        errorMessage);
+
+	        batch.add(record);
+
+	        // Save every 100 records
+	        if (batch.size() == BATCH_SIZE) {
+
+	            importRecordRepository.saveAll(batch);
+
+	            logger.info("{} records saved.", batch.size());
+
+	            batch.clear();
+	        }
 	    }
+
+	    // Save remaining records
+	    if (!batch.isEmpty()) {
+
+	        importRecordRepository.saveAll(batch);
+
+	        logger.info("{} records saved.", batch.size());
+
+	        batch.clear();
+	    }
+
+	    // Update Job Status
+	    if (failedRecords > 0) {
+	        job.setStatus(ImportStatus.FAILED);
+	    } else {
+	        job.setStatus(ImportStatus.COMPLETED);
+	    }
+
+	    importJobRepository.save(job);
+
+	    logger.info(
+	            "Import Job {} completed. Total: {}, Success: {}, Failed: {}",
+	            job.getId(),
+	            totalRecords,
+	            successfulRecords,
+	            failedRecords);
+	}
 
 }

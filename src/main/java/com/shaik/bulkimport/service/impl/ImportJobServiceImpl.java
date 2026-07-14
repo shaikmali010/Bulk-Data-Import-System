@@ -285,14 +285,28 @@ public class ImportJobServiceImpl implements ImportJobService{
 	
 	@Override
 	@Transactional(readOnly = true)
-	public List<ImportRecordResponseDto> getImportRecords(Long jobId) {
+	public Page<ImportRecordResponseDto> getImportRecords(Long jobId, int page, int size, String sortBy, String direction) {
+		
+		ImportJob job = importJobRepository.findById(jobId)
+		        .orElseThrow(() -> new ImportJobNotFoundException(
+		                "Import Job with ID " + jobId + " not found"));
+		
+		Sort sort = direction.equalsIgnoreCase("asc")
+				? Sort.by(sortBy).ascending()
+				: Sort.by(sortBy).descending();
+		
+		Pageable pageable = PageRequest.of(page, size, sort);
 		
 		logger.info(
-		        "Fetching import records for Job ID: {}",
-		        jobId);
+		        "Fetching import records for Job ID: {}, Page: {}, Size: {}, SortBy: {}, Direction: {}",
+		        jobId,
+		        page,
+		        size,
+		        sortBy,
+		        direction);
 
-	    List<ImportRecord> records =
-	            importRecordRepository.findByJobId(jobId);
+	    Page<ImportRecord> records =
+	            importRecordRepository.findByJobId(job.getId(), pageable);
 
 	    return ImportRecordMapper.mapToResponseList(records);
 	}

@@ -1,6 +1,5 @@
 package com.shaik.bulkimport.controller;
 
-import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -56,10 +55,14 @@ public class ImportJobController {
 	
 	@Operation(summary = "Get Import Records")
 	@GetMapping("/{jobId}/records")
-	public ResponseEntity<List<ImportRecordResponseDto>> getImportRecords(
-	        @PathVariable Long jobId) {
+	public ResponseEntity<Page<ImportRecordResponseDto>> getImportRecords(
+	        @PathVariable Long jobId,
+	        @RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(defaultValue = "id") String sortBy,
+			@RequestParam(defaultValue = "desc") String direction) {
 
 	    return ResponseEntity.ok(
-	            importJobService.getImportRecords(jobId));
+	            importJobService.getImportRecords(jobId, page, size, sortBy, direction));
 	}
 }
